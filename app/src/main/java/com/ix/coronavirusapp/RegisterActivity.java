@@ -94,6 +94,7 @@ public class RegisterActivity extends AppCompatActivity
 
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
         macAddress = mBluetoothAdapter.getAddress();
 
 

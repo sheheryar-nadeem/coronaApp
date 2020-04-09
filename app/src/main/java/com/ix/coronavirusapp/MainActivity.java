@@ -69,6 +69,7 @@ import pl.bclogic.pulsator4droid.library.PulsatorLayout;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
+    private static final String BONDING_CODE = "1111";
     BluetoothAdapter mBluetoothAdapter;
     public ArrayList<BluetoothDevice> mBTDevices = new ArrayList<>();
     Handler handler = new Handler();
@@ -409,8 +410,8 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "btnDiscover: Looking for unpaired devices.");
 
         if(mBluetoothAdapter.isDiscovering()){
-//            mBluetoothAdapter.cancelDiscovery();
-//            Log.d(TAG, "btnDiscover: Canceling discovery.");
+            mBluetoothAdapter.cancelDiscovery();
+            Log.d(TAG, "btnDiscover: Canceling discovery.");
 
             //check BT permissions in manifest
             checkBTPermissions();
@@ -490,11 +491,20 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
-
     private final BroadcastReceiver mBroadcastReceiver4 = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
+
+            if(action.equals(BluetoothDevice.ACTION_PAIRING_REQUEST)){
+                Log.d(TAG, "ACTION_PAIRING_REQUEST: ACTION_PAIRING_REQUEST.");
+                BluetoothDevice mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    mDevice.setPin(BONDING_CODE.getBytes());
+                }
+                abortBroadcast();
+            }
+
             if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
                 BluetoothDevice mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 if (mDevice.getBondState() == BluetoothDevice.BOND_BONDED){
@@ -503,6 +513,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (mDevice.getBondState() == BluetoothDevice.BOND_BONDING) {
                     Log.d(TAG, "BroadcastReceiver: BOND_BONDING.");
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                        mDevice.setPin(BONDING_CODE.getBytes());
+                    }
                 }
                 if (mDevice.getBondState() == BluetoothDevice.BOND_NONE) {
                     Log.d(TAG, "BroadcastReceiver: BOND_NONE.");
@@ -510,6 +523,25 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
+//    private final BroadcastReceiver mBroadcastReceiver4 = new BroadcastReceiver() {
+//        @Override
+//        public void onReceive(Context context, Intent intent) {
+//            final String action = intent.getAction();
+//            if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
+//                BluetoothDevice mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+//                if (mDevice.getBondState() == BluetoothDevice.BOND_BONDED){
+//                    Log.d(TAG, "BroadcastReceiver: BOND_BONDED.");
+//                    mBTDevice = mDevice;
+//                }
+//                if (mDevice.getBondState() == BluetoothDevice.BOND_BONDING) {
+//                    Log.d(TAG, "BroadcastReceiver: BOND_BONDING.");
+//                }
+//                if (mDevice.getBondState() == BluetoothDevice.BOND_NONE) {
+//                    Log.d(TAG, "BroadcastReceiver: BOND_NONE.");
+//                }
+//            }
+//        }
+//    };
 
 
     private void checkBTPermissions() {
