@@ -96,6 +96,7 @@ public class RegisterActivity extends AppCompatActivity
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         macAddress = mBluetoothAdapter.getAddress();
 
+
         FirebaseInstanceId.getInstance().getInstanceId().addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
             @Override
             public void onComplete(@NonNull Task<InstanceIdResult> task) {

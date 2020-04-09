@@ -12,7 +12,6 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.LOCAL_MAC_ADDRESS" />
 
     <application
         android:name=".MyApplication"
@@ -36,10 +35,6 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_ic_notification" />
-        <!--
- Set color used with incoming notification messages. This is used when no color is set for the incoming
-             notification message. See README(https://goo.gl/6BKBk7) for more.
-        -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/colorAccent" />
@@ -51,11 +46,6 @@
             android:name=".RegisterActivity"
             android:label="Covid Trace"
             android:theme="@style/AppThemeNoActionBar">
-
-            <!-- <activity -->
-            <!-- android:name=".MainActivity" -->
-            <!-- android:label="Register Form" -->
-            <!-- android:theme="@style/BluetoothTheme"> -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -75,6 +65,12 @@
             android:label="Notifications"
             android:parentActivityName=".RegisterActivity"/>
 
+        <receiver android:name=".BluetoothPairingRequest">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.PAIRING_REQUEST" />
+                <action android:name="android.bluetooth.device.action.PAIRING_CANCEL" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

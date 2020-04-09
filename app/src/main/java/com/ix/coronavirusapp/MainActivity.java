@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.text.DateFormat;
@@ -469,7 +470,6 @@ public class MainActivity extends AppCompatActivity {
                 if(Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2){
                     device.createBond();
                     mBTDevice = device;
-                    connectedStarting = false;
                     mBluetoothConnection = new BluetoothConnectionService(MainActivity.this);
 
                     // Start Connection
@@ -490,7 +490,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
-
 
     private final BroadcastReceiver mBroadcastReceiver4 = new BroadcastReceiver() {
         @Override
@@ -529,8 +528,7 @@ public class MainActivity extends AppCompatActivity {
             enableDisableBlueTooth();
         }
         if (requestCode == 1000){
-            enableDisableBlueTooth();
-             pulsator.start();
+            pulsator.start();
         }
     }
     @Override
@@ -762,6 +760,8 @@ public class MainActivity extends AppCompatActivity {
                         Log.d(TAG, "InputStream: " + incomingMessage);
                         bluetoothList.add(incomingMessage);
                         detectionAPI(incomingMessage);
+
+                        connectedStarting = false;
 
                     } catch (IOException e) {
                         Log.e(TAG, "write: Error reading Input Stream. " + e.getMessage() );
