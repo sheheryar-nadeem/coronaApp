@@ -5,9 +5,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.util.Log;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
+
+import static android.content.ContentValues.TAG;
 
 public class BluetoothPairingRequest extends BroadcastReceiver {
 
@@ -22,6 +25,8 @@ public class BluetoothPairingRequest extends BroadcastReceiver {
             Intent pairingIntent = new Intent();
             pairingIntent.setClass(context, MainActivity.class);
             pairingIntent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+            pairingIntent.putExtra(BluetoothDevice.EXTRA_UUID, device.getUuids());
+            pairingIntent.putExtra("Recieving Pairing Request: isOurDevice", true);
             pairingIntent.putExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, type);
             pairingIntent.setAction(BluetoothDevice.ACTION_PAIRING_REQUEST);
             pairingIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -31,6 +36,8 @@ public class BluetoothPairingRequest extends BroadcastReceiver {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                         device.setPin("1111".getBytes("UTF-8"));
+                        abortBroadcast();
+                        Log.d(TAG, "requesting device"+ device);
                     }
                 } catch (UnsupportedEncodingException e) {
                     e.printStackTrace();

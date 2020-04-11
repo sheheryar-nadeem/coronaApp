@@ -24,6 +24,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Parcelable;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -62,14 +63,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import pl.bclogic.pulsator4droid.library.PulsatorLayout;
 
+import static android.content.ContentValues.TAG;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
-    private static final String BONDING_CODE = "1111";
     BluetoothAdapter mBluetoothAdapter;
     public ArrayList<BluetoothDevice> mBTDevices = new ArrayList<>();
     Handler handler = new Handler();
@@ -79,14 +83,13 @@ public class MainActivity extends AppCompatActivity {
     BluetoothDevice mBTDevice;
 
 
-    String phoneNumber = "", macAddress = "";
+    String phoneNumber = "", macAddress = "", deviceName;
+    Boolean connectedStarting = false;
 
     PulsatorLayout pulsator;
-    TextView name;
+    TextView textViewName;
 
     SharedPreferences sharedpreferences;
-
-    Boolean connectedStarting = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,18 +104,33 @@ public class MainActivity extends AppCompatActivity {
 
         sharedpreferences = getSharedPreferences(Config.MyPREFERENCES, Context.MODE_PRIVATE);
         phoneNumber = sharedpreferences.getString(Config.phoneNumber, "");
+        deviceName = sharedpreferences.getString(Config.deviceName, "");
+
+        String currentDeviceId = sharedpreferences.getString(Config.currentDeviceId, "");
+        String deviceId = sharedpreferences.getString(Config.deviceId, "");
+        if (!currentDeviceId.equals(deviceId)){
+            SharedPreferences.Editor editor = sharedpreferences.edit();
+            editor.putBoolean(Config.verified, false);
+            editor.commit();
+
+            Intent intent = new Intent(MainActivity.this, RegisterActivity.class);
+            startActivity(intent);
+            finish();
+        }
 
         pulsator = (PulsatorLayout) findViewById(R.id.pulsator);
-        name = (TextView) findViewById(R.id.name);
+        textViewName = (TextView) findViewById(R.id.name);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        registerReceiver(mBroadcastReceiver4, filter);
-
+        mBluetoothAdapter.setName(phoneNumber+"/CovidTrace");
         macAddress = mBluetoothAdapter.getAddress();
-        name.setText(mBluetoothAdapter.getName());
-        mBTDevices = new ArrayList<>();
 
+        textViewName.setText(deviceName);
+
+//        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+//        registerReceiver(mBroadcastReceiver4, filter);
+
+        mBTDevices = new ArrayList<>();
 
         onOFFBlueTooth();
         updateData.run();
@@ -139,8 +157,6 @@ public class MainActivity extends AppCompatActivity {
 
         verifyMacAddressAPI();
     }
-
-
 
     public void verifyMacAddressAPI(){
         String phoneNo = "";
@@ -183,6 +199,7 @@ public class MainActivity extends AppCompatActivity {
         RequestQueue requestQueue = Volley.newRequestQueue(this);
         requestQueue.add(stringRequest);
     }
+
     public void notifyUsersAPI(){
         final ProgressDialog progressDialog = new ProgressDialog(MainActivity.this);
         progressDialog.setIndeterminate(true);
@@ -283,7 +300,7 @@ public class MainActivity extends AppCompatActivity {
 
                             AlertDialog.Builder builder;
                             builder = new AlertDialog.Builder(MainActivity.this);
-                            builder.setMessage("Sorry! Not connected to internet")
+                            builder.setMessage("Check your connection and try again ")
                                     .setNegativeButton("OK", new DialogInterface.OnClickListener() {
                                         public void onClick(DialogInterface dialog, int id) {
                                             dialog.cancel();
@@ -324,17 +341,24 @@ public class MainActivity extends AppCompatActivity {
             IntentFilter BTIntent = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
             registerReceiver(mBroadcastReceiver1, BTIntent);
         }else {
-             pulsator.start();
-            // enableDisableBlueTooth();
+             enableDisableBlueTooth();
 
-            // mBluetoothAdapter.disable();
-            // IntentFilter BTIntent = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-            // registerReceiver(mBroadcastReceiver1, BTIntent);
+             mBluetoothAdapter.disable();
+             IntentFilter BTIntent = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+             registerReceiver(mBroadcastReceiver1, BTIntent);
         }
     }
+    private Runnable bluetoothName = new Runnable(){
+        public void run(){
+            BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
+            myDevice.setName(phoneNumber+"/CovidTrace");
+            handler.postDelayed(bluetoothName,9000);
+        }
+    };
     private final BroadcastReceiver mBroadcastReceiver1 = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+
             if (action.equals(mBluetoothAdapter.ACTION_STATE_CHANGED)) {
                 final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, mBluetoothAdapter.ERROR);
                 switch(state){
@@ -346,6 +370,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case BluetoothAdapter.STATE_ON:
                         Log.d(TAG, "mBroadcastReceiver1: STATE ON");
+                        handler.postDelayed(bluetoothName,9000);
                         break;
                     case BluetoothAdapter.STATE_TURNING_ON:
                         Log.d(TAG, "mBroadcastReceiver1: STATE TURNING ON");
@@ -357,28 +382,25 @@ public class MainActivity extends AppCompatActivity {
 
 
     public void enableDisableBlueTooth (){
-        Log.d(TAG, "btnEnableDisable_Discoverable: Making device discoverable for 300 seconds.");
+        Log.d(TAG, "btnEnableDisable_Discoverable: Making device discoverable for 3600 seconds.");
 
         Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 3600);
         startActivityForResult(discoverableIntent, 1000);
 
         IntentFilter intentFilter = new IntentFilter(mBluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
         registerReceiver(mBroadcastReceiver2,intentFilter);
     }
     private final BroadcastReceiver mBroadcastReceiver2 = new BroadcastReceiver() {
-
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
             if (action.equals(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)) {
                 int mode = intent.getIntExtra(BluetoothAdapter.EXTRA_SCAN_MODE, BluetoothAdapter.ERROR);
                 switch (mode) {
-                    //Device is in Discoverable Mode
                     case BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE:
                         Log.d(TAG, "mBroadcastReceiver2: Discoverability Enabled.");
                         break;
-                    //Device not in discoverable mode
                     case BluetoothAdapter.SCAN_MODE_CONNECTABLE:
                         Log.d(TAG, "mBroadcastReceiver2: Discoverability Disabled. Able to receive connections.");
                         break;
@@ -397,12 +419,10 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-    private List<BluetoothDevices> allBluetoothDevices = new ArrayList<>();
-    public ArrayList<BluetoothDevice> uniqueBluetoothDevices = new ArrayList<>();
-
+    ArrayList<String> bluetoothList = new ArrayList<String>();
     private Runnable updateData = new Runnable(){
         public void run(){
-             discoverBlueTooth();
+            discoverBlueTooth();
             handler.postDelayed(updateData,9000);
         }
     };
@@ -412,16 +432,15 @@ public class MainActivity extends AppCompatActivity {
         if(mBluetoothAdapter.isDiscovering()){
             mBluetoothAdapter.cancelDiscovery();
             Log.d(TAG, "btnDiscover: Canceling discovery.");
-
             //check BT permissions in manifest
             checkBTPermissions();
 
             mBluetoothAdapter.startDiscovery();
-                IntentFilter discoverDevicesIntent = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+            IntentFilter discoverDevicesIntent = new IntentFilter(BluetoothDevice.ACTION_FOUND);
             registerReceiver(mBroadcastReceiver3, discoverDevicesIntent);
         }
-        if(!mBluetoothAdapter.isDiscovering()){
 
+        if(!mBluetoothAdapter.isDiscovering()){
             //check BT permissions in manifest
             checkBTPermissions();
 
@@ -434,41 +453,159 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            Log.d(TAG, "onReceive: ACTION FOUND.");
+            Log.d(TAG, "onReceive action list:. " + action);
 
             if (action.equals(BluetoothDevice.ACTION_FOUND)){
                 BluetoothDevice device = intent.getParcelableExtra (BluetoothDevice.EXTRA_DEVICE);
                 mBTDevices.add(device);
 
-                Boolean checkValue = false;
-                for (int j = 0; j < allBluetoothDevices.size(); j++){
-                    String macAddress = allBluetoothDevices.get(j).getMacNumber();
-                    if (macAddress.equals(device.getAddress()) ){
-                       checkValue = true;
+                String deviceName = device.getName();
+                if (!deviceName.isEmpty() && deviceName.split("/").length == 2){
+                    if (deviceName.split("/")[1].equals("CovidTrace")){
+                        bluetoothList.add(deviceName.split("/")[0]);
                     }
                 }
-                if (!checkValue){
-                    BluetoothDevices bluetoothDevices;
-                    bluetoothDevices = new BluetoothDevices();
-                    bluetoothDevices.setDeviceName(device.getName());
-                    bluetoothDevices.setMacNumber(device.getAddress());
-                    allBluetoothDevices.add(bluetoothDevices);
 
-                    uniqueBluetoothDevices.add(device);
-                    onItemClick(device);
-                }
-
-                Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main), device.getName() +" "+ device.getAddress(), Snackbar.LENGTH_LONG);
+                Snackbar snackbar = Snackbar.make(findViewById(R.id.activity_main), device.getName(), Snackbar.LENGTH_LONG);
                 snackbar.show();
+
+//                if(device.getAddress().equals("C0:EE:FB:E5:BD:53")) {
+//                    Log.d(TAG, "connecting to One Plus");
+//
+//                    Boolean checkValue = false;
+//                    for (int j = 0; j < allBluetoothDevices.size(); j++) {
+//                        String macAddress = allBluetoothDevices.get(j).getMacNumber();
+//                        if (macAddress.equals(device.getAddress())) {
+//                            checkValue = true;
+//                        }
+//                    }
+//                    if (!checkValue) {
+//                        uniqueBluetoothDevices.add(device);
+//                    }
+//                }
+//                onItemClick(device);
             }
         }
     };
+
+    String phoneNumberRemove = "", dateRemove = "";
+    JSONArray allBluetoothDevices;
+    private Runnable apiLoader = new Runnable(){
+        public void run(){
+
+            allBluetoothDevices = new JSONArray();
+            JSONObject bluetoothDevices;
+
+            String jsonArrayList = sharedpreferences.getString(Config.jsonArrayList, "[]");
+            JSONArray jsonArray = null;
+            try {
+                jsonArray = new JSONArray(jsonArrayList);
+
+                for (int i = 0; i < jsonArray.length(); i++) {
+
+                    String pn = jsonArray.getJSONObject(i).getString("phoneNumber");
+                    String d = jsonArray.getJSONObject(i).getString("date");
+
+                    if (!phoneNumberRemove.equals(pn) && !dateRemove.equals(d)){
+
+                        bluetoothDevices = new JSONObject();
+                        bluetoothDevices.put("phoneNumber", pn);
+                        bluetoothDevices.put("date", d);
+
+                        allBluetoothDevices.put(bluetoothDevices);
+                    }
+
+                }
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            HashSet<String> hashBluetoothList = new HashSet(bluetoothList);
+            for(String phoneNumber : hashBluetoothList){
+                try {
+
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    String date = simpleDateFormat.format(new Date());
+
+                    bluetoothDevices = new JSONObject();
+                    bluetoothDevices.put("phoneNumber", phoneNumber);
+                    bluetoothDevices.put("date", date);
+
+                    allBluetoothDevices.put(bluetoothDevices);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            SharedPreferences.Editor editor = sharedpreferences.edit();
+            editor.putString(Config.jsonArrayList, allBluetoothDevices.toString());
+            editor.commit();
+
+            bluetoothList.clear();
+
+
+            String jsonArrayJushString = sharedpreferences.getString(Config.jsonArrayList, "[]");
+            JSONArray jsonArrayJush = null;
+            try {
+                jsonArrayJush = new JSONArray(jsonArrayJushString);
+                if (jsonArrayJush.length() > 0) {
+                    detectionAPI(jsonArrayJush.getJSONObject(0).getString("phoneNumber"), jsonArrayJush.getJSONObject(0).getString("date"));
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            handler.postDelayed(apiLoader,90000);
+        }
+    };
+    public void detectionAPI(final String receverNumber, final String receverDate){
+
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, Config.DETECTION_URL,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+
+                        boolean success = false;
+                        JSONObject jsonObject = null;
+                        try{
+                            jsonObject = new JSONObject(response);
+                            success = jsonObject.getBoolean("success");
+                            if (success){
+                                phoneNumberRemove = receverNumber;
+                                dateRemove = receverDate;
+                            }
+                        }catch (JSONException e){ }
+
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) { }
+                }) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("sender", phoneNumber);
+                params.put("reciever", receverNumber);
+                return params;
+            }
+        };
+        //Adding the string request to the queue
+        RequestQueue requestQueue = Volley.newRequestQueue(this);
+        requestQueue.add(stringRequest);
+    }
+
+
+
+
     public void onItemClick(final BluetoothDevice device) {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 mBluetoothAdapter.cancelDiscovery();
                 if(Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2){
+
                     device.createBond();
                     mBTDevice = device;
                     mBluetoothConnection = new BluetoothConnectionService(MainActivity.this);
@@ -485,26 +622,18 @@ public class MainActivity extends AppCompatActivity {
         public void run(){
             // Data Send
             if (connectedStarting){
-                String data = phoneNumber;
+                String data = "+923355566778";
                 byte[] bytes = data.getBytes(Charset.defaultCharset());
                 mBluetoothConnection.write(bytes);
             }
         }
     };
+
+
     private final BroadcastReceiver mBroadcastReceiver4 = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-
-            if(action.equals(BluetoothDevice.ACTION_PAIRING_REQUEST)){
-                Log.d(TAG, "ACTION_PAIRING_REQUEST: ACTION_PAIRING_REQUEST.");
-                BluetoothDevice mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                    mDevice.setPin(BONDING_CODE.getBytes());
-                }
-                abortBroadcast();
-            }
-
             if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
                 BluetoothDevice mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 if (mDevice.getBondState() == BluetoothDevice.BOND_BONDED){
@@ -513,9 +642,6 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (mDevice.getBondState() == BluetoothDevice.BOND_BONDING) {
                     Log.d(TAG, "BroadcastReceiver: BOND_BONDING.");
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                        mDevice.setPin(BONDING_CODE.getBytes());
-                    }
                 }
                 if (mDevice.getBondState() == BluetoothDevice.BOND_NONE) {
                     Log.d(TAG, "BroadcastReceiver: BOND_NONE.");
@@ -523,25 +649,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
-//    private final BroadcastReceiver mBroadcastReceiver4 = new BroadcastReceiver() {
-//        @Override
-//        public void onReceive(Context context, Intent intent) {
-//            final String action = intent.getAction();
-//            if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
-//                BluetoothDevice mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-//                if (mDevice.getBondState() == BluetoothDevice.BOND_BONDED){
-//                    Log.d(TAG, "BroadcastReceiver: BOND_BONDED.");
-//                    mBTDevice = mDevice;
-//                }
-//                if (mDevice.getBondState() == BluetoothDevice.BOND_BONDING) {
-//                    Log.d(TAG, "BroadcastReceiver: BOND_BONDING.");
-//                }
-//                if (mDevice.getBondState() == BluetoothDevice.BOND_NONE) {
-//                    Log.d(TAG, "BroadcastReceiver: BOND_NONE.");
-//                }
-//            }
-//        }
-//    };
 
 
     private void checkBTPermissions() {
@@ -567,59 +674,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         Log.d(TAG, "onDestroy: called.");
         super.onDestroy();
+
+        mBluetoothAdapter.setName(deviceName);
+        mBluetoothAdapter.disable();
+
         unregisterReceiver(mBroadcastReceiver1);
         unregisterReceiver(mBroadcastReceiver2);
-        // unregisterReceiver(mBroadcastReceiver3);
+        unregisterReceiver(mBroadcastReceiver3);
         // unregisterReceiver(mBroadcastReceiver4);
     }
-
-
-
-    ArrayList<String> bluetoothList = new ArrayList<String>();
-    private Runnable apiLoader = new Runnable(){
-        public void run(){
-            for(String strNumber : bluetoothList){
-                detectionAPI(strNumber);
-            }
-            handler.postDelayed(apiLoader,60000);
-        }
-    };
-    public void detectionAPI(final String receverNumber){
-        StringRequest stringRequest = new StringRequest(Request.Method.POST, Config.DETECTION_URL,
-                new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(String response) {
-
-                        boolean success = false;
-                        JSONObject jsonObject = null;
-                        try{
-                            jsonObject = new JSONObject(response);
-                            success = jsonObject.getBoolean("success");
-                            if (success){
-                                bluetoothList.remove(receverNumber);
-                            }
-                        }catch (JSONException e){ }
-
-                    }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) { }
-                }) {
-            @Override
-            protected Map<String, String> getParams() {
-                Map<String, String> params = new HashMap<>();
-                params.put("sender", phoneNumber);
-                params.put("reciever", receverNumber);
-                return params;
-            }
-        };
-        //Adding the string request to the queue
-        RequestQueue requestQueue = Volley.newRequestQueue(this);
-        requestQueue.add(stringRequest);
-    }
-
-
 
 
 
@@ -790,8 +853,6 @@ public class MainActivity extends AppCompatActivity {
                         bytes = mmInStream.read(buffer);
                         String incomingMessage = new String(buffer, 0, bytes);
                         Log.d(TAG, "InputStream: " + incomingMessage);
-                        bluetoothList.add(incomingMessage);
-                        detectionAPI(incomingMessage);
 
                         connectedStarting = false;
 

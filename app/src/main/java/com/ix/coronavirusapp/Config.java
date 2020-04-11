@@ -15,8 +15,13 @@ public class Config {
 
     public static final String _id = "_idKey";
     public static final String phoneNumber = "phoneNumberKey";
-    public static final String fullName = "fullNameKey";
     public static final String verified = "verifiedKey";
+    public static final String fullName = "fullNameKey";
     public static final String macAddress = "macAddressKey";
+    public static final String deviceName = "deviceNameKey";
     public static final String deviceId = "deviceIdKey";
+    public static final String currentDeviceId = "currentDeviceIdKey";
+
+
+    public static final String jsonArrayList = "jsonArrayListKey";
 }

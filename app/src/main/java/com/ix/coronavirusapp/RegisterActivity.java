@@ -2,7 +2,10 @@ package com.ix.coronavirusapp;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
@@ -13,9 +16,12 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.ParcelUuid;
 import android.provider.Settings;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.util.Patterns;
 import android.view.View;
@@ -47,6 +53,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -59,18 +66,29 @@ public class RegisterActivity extends AppCompatActivity
     Button tryButton;
     Button buttonNext;
 
-    String phoneNumber = "", macAddress = "", deviceId = "", fullName = "";
+    String phoneNumber = "", macAddress = "", deviceName = "", deviceId = "", fullName = "";
     EditText editTextPhoneNumber, editTextFullName;
 
     SharedPreferences sharedpreferences;
 
     BluetoothAdapter mBluetoothAdapter;
-    public static final String SECURE_SETTINGS_BLUETOOTH_ADDRESS = "bluetooth_address";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
+
+        FirebaseInstanceId.getInstance().getInstanceId().addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
+            @Override
+            public void onComplete(@NonNull Task<InstanceIdResult> task) {
+                if (!task.isSuccessful()) { return; }
+                deviceId = task.getResult().getToken();
+
+                SharedPreferences.Editor editor = sharedpreferences.edit();
+                editor.putString(Config.currentDeviceId, deviceId);
+                editor.commit();
+            }
+        });
 
         sharedpreferences = getSharedPreferences(Config.MyPREFERENCES, Context.MODE_PRIVATE);
         Boolean status = sharedpreferences.getBoolean(Config.verified, false);
@@ -92,19 +110,9 @@ public class RegisterActivity extends AppCompatActivity
             }
         });
 
-
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
         macAddress = mBluetoothAdapter.getAddress();
-
-
-        FirebaseInstanceId.getInstance().getInstanceId().addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
-            @Override
-            public void onComplete(@NonNull Task<InstanceIdResult> task) {
-                if (!task.isSuccessful()) { return; }
-                deviceId = task.getResult().getToken();
-            }
-        });
+        deviceName = mBluetoothAdapter.getName();
 
         editTextFullName = (EditText) findViewById(R.id.editTextFullName);
         editTextPhoneNumber = (EditText) findViewById(R.id.editTextPhoneNumber);
@@ -163,7 +171,6 @@ public class RegisterActivity extends AppCompatActivity
                     public void onResponse(String response) {
 
                         boolean success = false;
-                        String message = "";
                         JSONObject jsonObject = null;
                         JSONObject dataObject = null;
 
@@ -181,6 +188,7 @@ public class RegisterActivity extends AppCompatActivity
                                 editor.putString(Config.deviceId, dataObject.getString("deviceId"));
                                 editor.putString(Config.fullName, dataObject.getString("fullName"));
                                 editor.putBoolean(Config.verified, dataObject.getBoolean("verified"));
+                                editor.putString(Config.deviceName, deviceName);
                                 editor.commit();
 
                                 Intent intent = new Intent(RegisterActivity.this, VerifyActivity.class);
